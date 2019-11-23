@@ -77,6 +77,22 @@ sys_sleep(void)
   return 0;
 }
 
+int
+sys_vfork(void)
+{
+  return vfork();
+}
+
+int
+sys_getpaddr(void)
+{
+  pde_t *pgdir = myproc()->pgdir;
+  int laddr;
+  if(argint(0, &laddr))
+    return -1;
+  return getpaddr(pgdir, (uint) laddr);
+}
+
 // return how many clock tick interrupts have occurred
 // since start.
 int

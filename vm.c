@@ -6,9 +6,12 @@
 #include "mmu.h"
 #include "proc.h"
 #include "elf.h"
+#include "spinlock.h"
 
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
+char usecnt[PHYSTOP / PGSIZE] = {0, }; // physical memory share counter
+struct spinlock usecntlock;
 
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
@@ -216,6 +219,49 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
   return 0;
 }
 
+// Duplicates specific physical memory, and replaces respective pte with allocated memory
+// Also changes physical address' usecnt status
+int
+unsharevm(uint va)
+{
+  // TODO!! 20191121
+  pde_t *pgdir = myproc()->pgdir;
+  pte_t *pa;
+  
+  va = PGROUNDDOWN(va);
+  // cprintf("VA: %d\n", va);
+  if (va > KERNBASE)
+    panic("unsharevm: illegal va");
+
+  if ((pa = walkpgdir(pgdir, (void*)va, 0))==0)
+    panic("unsharevm: pa doesn't exist");
+
+  uint cnt_i = (uint) *pa / PGSIZE;
+
+  acquire(&usecntlock);
+  // if usecnt == 0, it's when parent's mem was left read-only
+  // after child has already unshared its shared memory.
+  // else, it's when child are trying to write on shared memory
+  // cprintf("%d\n", usecnt[cnt_i]);
+  if (usecnt[cnt_i] != 0) { 
+    char *mem;
+    if ((mem = kalloc()) == 0)
+      return -1;
+    
+    memmove(mem, P2V(PTE_ADDR(*pa)), PGSIZE);
+    *pa = V2P(mem) | PTE_FLAGS(*pa) | PTE_P | PTE_W;
+
+    usecnt[cnt_i] -= 1;
+  }
+  else
+    *pa = *pa | PTE_W; // set write permission to one
+  
+  // cprintf("unsharevm done\n");
+  release(&usecntlock);
+  
+  return 0;
+}
+
 // Allocate page tables and physical memory to grow process from oldsz to
 // newsz, which need not be page aligned.  Returns new size or 0 on error.
 int
@@ -344,6 +390,59 @@ bad:
   return 0;
 }
 
+pde_t*
+cowuvm(pde_t *pgdir, uint sz)
+{
+  pde_t *d;
+  pte_t *pte;
+  uint pa, i, cnt_i;
+ 
+  if((d = setupkvm()) == 0)
+    return 0;
+  
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("cowuvm: pte should exist");
+    if(!(*pte & PTE_P))
+      panic("cowuvm: page not present");
+    pa = PTE_ADDR(*pte);
+    cnt_i = pa / PGSIZE;
+
+    acquire(&usecntlock);
+    usecnt[cnt_i] += 1;
+    release(&usecntlock);
+
+    *pte = *pte & ~PTE_W; // make parent's addr ro    
+    if(mappages(d, (void*)i, PGSIZE, pa, PTE_FLAGS(*pte)) < 0) {
+      goto bad;
+    }
+
+    lcr3(V2P(pgdir));
+  }
+
+  /*
+  // Test code
+  pte_t *pte_parent;
+  pte_t *pte_child;
+  pte_parent = walkpgdir(pgdir, (void *) PGSIZE + PGSIZE, 0);
+  pte_child = walkpgdir(d, (void *) PGSIZE + PGSIZE, 0);
+  if (pte_parent != pte_child) {
+    if ( *pte_parent == *pte_child)
+      cprintf("Successfully CoWuvmed\n");
+    else
+      cprintf("Fail:1\n");
+  }
+  else
+    cprintf("Fail:2\n");
+  */
+
+  return d;
+
+bad:
+  freevm(d);
+  return 0;
+}
+
 //PAGEBREAK!
 // Map user virtual address to kernel address.
 char*
@@ -383,6 +482,15 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
     va = va0 + PGSIZE;
   }
   return 0;
+}
+
+int
+getpaddr(pde_t *pgdir, uint laddr)
+{
+  pte_t *physaddr = walkpgdir(pgdir, (void *) laddr, 0);
+  int physpage = (int) PTE_ADDR(*physaddr);
+  int offset = laddr & 0xFFF;
+  return physpage + offset;
 }
 
 //PAGEBREAK!

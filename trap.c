@@ -77,6 +77,15 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+  case T_PGFLT:
+    // cprintf("ERR: %d\n", tf->err);
+    if (tf->err & 0x3) {
+      // W was set, which means PF occured during write operation.
+       // Should allocate new memory, change pte and reduce cnt
+      if (unsharevm(rcr2())==0)
+        break;
+    }
+    // didn't break; should panic("trap")
 
   //PAGEBREAK: 13
   default:
