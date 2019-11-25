@@ -13,6 +13,7 @@ void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
                    // defined by the kernel linker script in kernel.ld
 extern char usecnt[];
+extern struct spinlock usecntlock;
 
 struct run {
   struct run *next;
@@ -65,6 +66,8 @@ kfree(char *v)
   if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
     panic("kfree");
 
+  // acquire(&usecntlock);
+  // can't acquire lock when booting: -_-?
   if (usecnt[V2P(v) / PGSIZE] == 0) {
     // Fill with junk to catch dangling refs.
     memset(v, 1, PGSIZE);
@@ -79,6 +82,7 @@ kfree(char *v)
   }
   else
     usecnt[V2P(v) / PGSIZE] -= 1;  
+  // release(&usecntlock);
 }
 
 // Allocate one 4096-byte page of physical memory.

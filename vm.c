@@ -258,6 +258,7 @@ unsharevm(uint va)
   
   // cprintf("unsharevm done\n");
   release(&usecntlock);
+  lcr3(V2P(myproc()->pgdir));
   
   return 0;
 }

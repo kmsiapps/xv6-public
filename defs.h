@@ -188,7 +188,6 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 int             getpaddr(pde_t*, uint);
-extern char usecnt[];
 int             unsharevm(uint);
 
 // number of elements in fixed-size array

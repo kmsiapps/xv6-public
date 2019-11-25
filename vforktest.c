@@ -18,15 +18,12 @@ vforktest(void)
     if (pid < 0)
       return;
     if (pid == 0) {
-      sleep(10);
       printf(1, "GRANDCHILD-PA1: %d\n", getpaddr((int)&n));
-      sleep(100);
       n = 1;
       printf(1, "GRANDCHILD-PA2: %d\n", getpaddr((int)&n));
       exit();
     }
     if (pid > 0) {
-      sleep(5);
       printf(1, "CHILD-PA1: %d\n", getpaddr((int)&n));
       wait();
       printf(1, "CHILD-PA2: %d\n", getpaddr((int)&n));
