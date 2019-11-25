@@ -66,8 +66,9 @@ kfree(char *v)
   if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
     panic("kfree");
 
-  // acquire(&usecntlock);
-  // can't acquire lock when booting: -_-?
+  if (kmem.use_lock)
+    acquire(&usecntlock);
+
   if (usecnt[V2P(v) / PGSIZE] == 0) {
     // Fill with junk to catch dangling refs.
     memset(v, 1, PGSIZE);
@@ -82,7 +83,10 @@ kfree(char *v)
   }
   else
     usecnt[V2P(v) / PGSIZE] -= 1;  
-  // release(&usecntlock);
+
+  if (kmem.use_lock)
+    release(&usecntlock);
+
 }
 
 // Allocate one 4096-byte page of physical memory.
