@@ -183,6 +183,7 @@ UPROGS=\
 	_zombie\
 	_vforktest\
 	_sln\
+	_bigtest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

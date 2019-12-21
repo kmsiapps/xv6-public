@@ -406,8 +406,8 @@ bmap(struct inode *ip, uint bn)
     a = (uint*)bp->data;
 
     // Load 2nd Indirect data blocks, allocating if necessary
-    if((addr = a[bn%NINDIRECT]) == 0){
-      a[bn%NINDIRECT] = addr = balloc(ip->dev);
+    if((addr = a[bn/NINDIRECT]) == 0){
+      a[bn/NINDIRECT] = addr = balloc(ip->dev);
       log_write(bp);
     }
     brelse(bp);
@@ -415,8 +415,8 @@ bmap(struct inode *ip, uint bn)
     // Load the data block from ptr
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
-    if((addr = a[bn/NINDIRECT]) == 0){
-      a[bn/NINDIRECT] = addr = balloc(ip->dev);
+    if((addr = a[bn%NINDIRECT]) == 0){
+      a[bn%NINDIRECT] = addr = balloc(ip->dev);
       log_write(bp);
     }
     brelse(bp);
@@ -726,11 +726,4 @@ struct inode*
 nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
-}
-
-int slink(const char *src, const char *dst)
-{
-  cprintf("src: %s\n", src);
-  cprintf("dst: %s\n", dst);
-  return -1;
 }
