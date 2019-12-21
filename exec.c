@@ -6,6 +6,7 @@
 #include "defs.h"
 #include "x86.h"
 #include "elf.h"
+#include "stat.h"
 
 int
 exec(char *path, char **argv)
@@ -18,6 +19,7 @@ exec(char *path, char **argv)
   struct proghdr ph;
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
+  char slnkbuf[1024];
 
   begin_op();
 
@@ -26,7 +28,22 @@ exec(char *path, char **argv)
     cprintf("exec: fail\n");
     return -1;
   }
+
   ilock(ip);
+  // Check if symlink, and read file content
+  if(getslink(ip, slnkbuf) >= 0)
+  {
+    // unlock old ip
+    iunlockput(ip);
+    // set new ip from content
+    if((ip = namei(slnkbuf)) == 0){
+      end_op();
+      cprintf("exec: fail\n");
+      return -1;
+    }
+    ilock(ip);
+  }
+
   pgdir = 0;
 
   // Check ELF header

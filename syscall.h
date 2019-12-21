@@ -22,3 +22,4 @@
 #define SYS_close  21
 #define SYS_vfork  22
 #define SYS_getpaddr  23
+#define SYS_slink 25

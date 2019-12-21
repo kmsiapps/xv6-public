@@ -25,6 +25,7 @@ int sleep(int);
 int uptime(void);
 int vfork(void);
 int getpaddr(int);
+int slink(const char*, const char*);
 
 // ulib.c
 int stat(const char*, struct stat*);

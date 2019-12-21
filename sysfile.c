@@ -289,6 +289,7 @@ sys_open(void)
   int fd, omode;
   struct file *f;
   struct inode *ip;
+  char slnkbuf[1024];
 
   if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
     return -1;
@@ -311,6 +312,23 @@ sys_open(void)
       iunlockput(ip);
       end_op();
       return -1;
+    }
+    // Check if symlink, and read file content
+    if(getslink(ip, slnkbuf) >= 0)
+    {
+      // unlock old ip
+      iunlockput(ip);
+      // set new ip from content
+      if((ip = namei(slnkbuf)) == 0){
+        end_op();
+        return -1;
+      }
+      ilock(ip);
+      if(ip->type == T_DIR && omode != O_RDONLY){
+        iunlockput(ip);
+        end_op();
+        return -1;
+      }
     }
   }
 
@@ -440,5 +458,47 @@ sys_pipe(void)
   }
   fd[0] = fd0;
   fd[1] = fd1;
+  return 0;
+}
+
+int
+sys_slink(void)
+{
+  char *new, *old;
+  struct inode *ip;
+  int fd;
+  struct file *f;
+
+  if(argstr(0, &old) < 0 || argstr(1, &new) < 0)
+    return -1;
+  
+  // create new file
+  begin_op();
+
+  ip = create(new, T_SLNK, 0, 0);
+  if(ip == 0){
+    end_op();
+    return -1;
+  }
+
+  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+    if(f)
+      fileclose(f);
+    iunlockput(ip);
+    end_op();
+    return -1;
+  }
+  iunlock(ip);
+  end_op();
+
+  f->type = FD_INODE;
+  f->ip = ip;
+  f->off = 0;
+  f->readable = 1;
+  f->writable = 1;
+
+  // write new addr into file
+  filewrite(f, old, strlen(old)+1);
+
   return 0;
 }

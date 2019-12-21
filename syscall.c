@@ -105,6 +105,7 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_vfork(void);
 extern int sys_getpaddr(void);
+extern int sys_slink(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -130,6 +131,7 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_vfork]   sys_vfork,
 [SYS_getpaddr]  sys_getpaddr,
+[SYS_slink]  sys_slink,
 };
 
 void
